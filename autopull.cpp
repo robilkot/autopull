@@ -31,19 +31,19 @@ int main(int argc, char* argv[])
 	else inp.open("robilkot_autopull_repos.txt");
 	if (!inp.is_open()) {
 		cerr << RED << "Couldn't open file with repos list!\n" << RESET;
-		exit(EXIT_FAILURE);
 		system("pause");
+		exit(EXIT_FAILURE);
 	}
 
 	int updatedrepos=0, totalrepos=0;
+	bool connectionerror = 0;
 	for (string currentline; getline(inp, currentline); totalrepos++) {
 		vector<string> arguments(SplitString(currentline));
 		while (arguments.size() < 3) arguments.push_back("");
 		cout << WHITE << "Updating repository at " << arguments[0] << " (remote: '" << arguments[1] << "', branch: '" << arguments[2] << "')\n" << RESET;
 
 		string command = "git --git-dir=" + arguments[0] + ".git --work-tree=" + arguments[0] + " pull " + arguments[1] + " " + arguments[2] + " > autopull_log.txt 2> autopull_error.txt";
-
-		bool connectionerror = 0;
+		
 		for (int i = 0; i < 3; i++) {
 			system(command.c_str()); // exec pull, out to err.txt
 
@@ -78,6 +78,9 @@ int main(int argc, char* argv[])
 				errortype = "Not a git repository, incorrect remote or access denied";
 				fatal = 1;
 			}
+			else {
+				errortype = "Unknown error";
+			}
 
 			if (fatal) {
 				cout << RED << "Update failed! (" << errortype << ")\n" << RESET;
@@ -90,16 +93,18 @@ int main(int argc, char* argv[])
 				system(timeout.c_str());
 			}
 		}
+		cout << "\n";
 		if (connectionerror) {
 			//cerr << RED << "Connection error! Aborting. \n" << RESET;
 			break;
 		}
-		cout << "\n";
 	}
 	inp.close();
 	
 	if (updatedrepos == 0) {
-		cerr << RED << "Update failed! No repositories updated!\n" << RESET;
+		cerr << RED << "No repositories were updated! ";
+		if(connectionerror) cout << "Check your internet connection." << RESET;
+		cout << "\n";
 		system("pause");
 	}
 	else if (updatedrepos != totalrepos) {
