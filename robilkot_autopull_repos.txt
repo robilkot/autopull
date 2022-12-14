@@ -1,2 +1,4 @@
-E:/work/BSUIR/
+E:/work/BSUIR/ 
 E:/work/BSUIR_RPIIS/
+E:/work/autopull/
+E:/work/AoC-2022/
