@@ -4,11 +4,7 @@
 #include <sstream>
 #include <vector>
 
-#define RED		"\033[31m"
-#define YELLOW "\033[33m"
-#define GREEN	"\033[32m"
-#define WHITE	"\033[37m"
-#define RESET	"\033[0m"
+#include "color.hpp"
 
 using namespace std;
 
@@ -24,45 +20,54 @@ vector<string> SplitString(string str)
 int main(int argc, char* argv[])
 {
 	ifstream inp;
-	if (argc > 1) {
+	if (argc > 1) { // Open given file
 		inp.open(argv[1]);
 		cout << "Updating repositories from file " << argv[1] << "\n\n";
 	}
-	else inp.open("robilkot_autopull_repos.txt");
+	else inp.open("robilkot_autopull_repos.txt"); // .. Or the default one
 	if (!inp.is_open()) {
-		cerr << RED << "Couldn't open file with repos list!\n" << RESET;
+		cerr << dye::light_red("Couldn't open file with repos list!\n");
 		system("pause");
 		exit(EXIT_FAILURE);
 	}
 
+	system("del autopull_error.txt > nul 2> nul"); // Clean error log before executing new commands
 	int updatedrepos=0, totalrepos=0;
 	bool connectionerror = 0;
-	for (string currentline; getline(inp, currentline); totalrepos++) {
+	for (string currentline; getline(inp, currentline); totalrepos++)
+	{
 		vector<string> arguments(SplitString(currentline));
 		while (arguments.size() < 3) arguments.push_back("");
-		cout << WHITE << "Updating repository at " << arguments[0] << " (remote: '" << arguments[1] << "', branch: '" << arguments[2] << "')\n" << RESET;
+		cout << "Updating repository at " << arguments[0] << " (remote: '" << arguments[1] << "', branch: '" << arguments[2] << "')\n";
 
-		string command = "git --git-dir=" + arguments[0] + ".git --work-tree=" + arguments[0] + " pull " + arguments[1] + " " + arguments[2] + " > autopull_log.txt 2> autopull_error.txt";
-		
+		string filename_error = "autopull_error" + to_string(totalrepos) + ".txt"; // Forming command
+		string command_output = " > nul 2> " + filename_error; // set output channel > for log, 2> for errors
+		string command = "git --git-dir=" + arguments[0] + ".git " + "--work-tree=" + arguments[0] + " pull " + arguments[1] + " " + arguments[2] + command_output;
+
 		for (int i = 0; i < 3; i++) {
-			system(command.c_str()); // exec pull, out to err.txt
+			system(command.c_str()); // Execute command
 
-			ifstream checkerror("autopull_error.txt");
+			ifstream checkerror(filename_error);
+			//ifstream checklog("autopull_log.txt");
+			if (!checkerror.is_open()) cout << "Something went wrong!\n";
 			string error;
+			//string log;
 			getline(checkerror, error);
+			//getline(checklog, log);
 			checkerror.close();
-
-			system("del autopull_log.txt > nul 2> nul");
-			system("del autopull_error.txt > nul 2> nul");
-
-			if (error.empty() || error.find("From") != string::npos) {
-				cout << GREEN << "Updated!\n" << RESET;
-				connectionerror = 0;
-				updatedrepos++;
-				break;
-			}
+			//checklog.close();
 
 			//cout << error << "\n";
+			//cout << log << "\n";
+
+			if (error.empty() || error.find("From") != string::npos) {
+				cout << dye::light_green("Updated!\n");
+				connectionerror = 0;
+				updatedrepos++;
+				string del_command = "del " + filename_error + " > nul 2> nul";
+				system(del_command.c_str());
+				break;
+			}
 
 			string errortype;
 			bool fatal = 0;
@@ -75,18 +80,31 @@ int main(int argc, char* argv[])
 				fatal = 1;
 			}
 			else if (error.find("does not appear") != string::npos) {
-				errortype = "Not a git repository, incorrect remote or access denied";
+				errortype = "Incorrect remote or access denied";
+				fatal = 1;
+			}
+			else if (error.find("not a git") != string::npos || error.find("no such file") != string::npos) {
+				errortype = "Incorrect path or folder is not a repository";
+				fatal = 1;
+			}
+			else if (error.find("local changes") != string::npos) {
+				errortype = "Conflict while merging";
 				fatal = 1;
 			}
 			else {
 				errortype = "Unknown error";
 			}
 
+			if (errortype != "Unknown error") {
+				string del_command = "del " + filename_error +" > nul 2> nul";
+				system(del_command.c_str());
+			}
+			
 			if (fatal) {
-				cout << RED << "Update failed! (" << errortype << ")\n" << RESET;
+				cout << dye::light_red("Update failed! (") << dye::light_red(errortype) << dye::light_red(")\n");
 				break;
 			}
-			else cout << YELLOW << "Update failed! (" << errortype << ", attempt " << i + 1 << "/3)\n" << RESET;
+			else cout << dye::light_yellow("Update failed! (") << dye::light_yellow(errortype) << dye::light_yellow(", attempt ") << dye::light_yellow(i + 1) << dye::light_yellow("/3)\n");
 
 			if (i < 2) {
 				string timeout = "timeout " + to_string(5 * (i + 1));
@@ -94,23 +112,20 @@ int main(int argc, char* argv[])
 			}
 		}
 		cout << "\n";
-		if (connectionerror) {
-			//cerr << RED << "Connection error! Aborting. \n" << RESET;
-			break;
-		}
+		if (connectionerror) break;
 	}
 	inp.close();
 	
 	if (updatedrepos == 0) {
-		cerr << RED << "No repositories were updated! ";
-		if(connectionerror) cout << "Check your internet connection." << RESET;
+		cerr << dye::white_on_red("No repositories were updated! ");
+		if(connectionerror) cout << dye::white_on_red("Check your internet connection.");
 		cout << "\n";
 		system("pause");
 	}
 	else if (updatedrepos != totalrepos) {
-		cout << YELLOW << "Updated " << updatedrepos << "/" << totalrepos << " repositories! See log for details.\n" << RESET;
+		cout << dye::on_yellow("Updated ") << dye::on_yellow(updatedrepos) << dye::on_yellow("/") << dye::on_yellow(totalrepos) << dye::on_yellow(" repositories! See above for details.\n");
 		system("pause");
 	}
-	else cout << GREEN << "Succesfully updated!\n" << RESET;
+	else cout << dye::light_green("Succesfully updated!\n");
 	return 0;
 }
