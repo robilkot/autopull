@@ -3,6 +3,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <algorithm>
 
 #include "color-console\include\color.hpp"
 
@@ -10,6 +11,8 @@ using namespace std;
 
 vector<string> SplitString(string str)
 {
+	if (str.empty()) return {};
+	if (str[0] == ' ') str.erase(str.begin());
 	string s;
 	stringstream ss(str);
 	vector<string> v;
@@ -37,22 +40,31 @@ int main(int argc, char* argv[])
 	for (string currentline; getline(inp, currentline); totalrepos++)
 	{
 		if (currentline.empty()) continue;
-		vector<string> arguments(SplitString(currentline));
+		replace(currentline.begin(), currentline.end(), '\\', '/');
+
 		string repo, remote, branch;
+		size_t slashpos = currentline.rfind('/');
+		repo = currentline.substr(0, slashpos+1);
+		repo.insert(repo.begin(), '"');
+		repo.insert(repo.end(), '"');
+		currentline.erase(0, slashpos+1);
+
+		vector<string> arguments(SplitString(currentline));
+
 		switch (arguments.size()) {
-		case 1: {
-			repo = arguments[0];
+		case 0: {
+			remote = "";
+			branch = "";
 			break;
 		}
-		case 2: {
-			repo = arguments[0];
-			remote = arguments[1];
+		case 1: {
+			remote = arguments[0];
+			branch = "";
 			break;
 		}
 		default: {
-			repo = arguments[0];
-			remote = arguments[1];
-			branch = arguments[2];
+			remote = arguments[0];
+			branch = arguments[1];
 			break;
 		}
 		}
